@@ -50,6 +50,7 @@ int gIsPathEnabled=1;
 int gIgnoreCnames=0;
 int gNoV4=0;
 int gNoV6=0;
+int gReadFile=0;
 
 // Option to save packets to file for viewing by wireshark, tcpdump:
 
@@ -71,12 +72,13 @@ static struct option long_options[] =
     {"capture",   no_argument,       &gIsPcapOutEnabled, 2},
     {"no6", no_argument, &gNoV6, 3},
     {"no4", no_argument, &gNoV4, 4},
+    {"readfile", no_argument, &gReadFile, 5},
     {"help", no_argument, NULL,'h'},
     {"trunc", 1, NULL, 't'},
     {0, 0, 0, 0}
   };
 
-  #define NUM_OPTIONS 7
+  #define NUM_OPTIONS 8
 
 void usage()
 {
@@ -86,6 +88,7 @@ void usage()
 " --nopath    Do not keep track of CNAME path\n"
 " --nocnames  Skip CNAME parsing altogether\n"
 " --capture   Capture packets\n"
+" --readfile  Read packets From file\n"
 " --no6       Do not print ANSWER records containing IPV6 addresses\n"
 " --no4       Do not print ANSWER records containing IPV4 addresses\n"
 " --trunc <N> Truncate packets to N bytes, Where 60 < N < 1500. Defaults to 500\n";
@@ -229,14 +232,21 @@ int main(int argc, char *argv[])
   if (gIgnoreCnames) printf("--nocnames option used, will ignore CNAME records\n");
   if (0 == gIsPathEnabled) printf("--nopath option used, CNAME paths omitted\n");
 
-  //Open the device for sniffing
-  printf("Opening device %s for sniffing .." , devname);
-  handle = pcap_open_live(devname , snaplen , 0 /* not promisc */ , 10 /* millis timeout */ , errbuf);
+  if(gReadFile == 0){
+    //Open the device for sniffing
+    printf("Opening device %s for sniffing .." , devname);
+    handle = pcap_open_live(devname , snaplen , 0 /* not promisc */ , 10 /* millis timeout */ , errbuf);
+  }
+  else{
+    //Open the file for sniffing
+    printf("Opening file %s for sniffing .." , devname);
+    handle = pcap_open_offline(devname , errbuf);
+  }
 
   if (handle == NULL)
   {
-    fprintf(stderr, "Couldn't open device %s : %s\n" , devname , errbuf);
-    if (argc <=1 ) printf("Hint: Specify network device (e.g. 'eth1') in first command-line argument.\n\n");
+    fprintf(stderr, "Couldn't open device/file %s : %s\n" , devname , errbuf);
+    if (argc <=1 ) printf("Hint: Specify network device (e.g. 'eth1') in first command-line argument.\n Or use option --readfile and Specify a pcap file as input.\n\n");
     exit(1);
   }
 
