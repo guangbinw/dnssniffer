@@ -25,3 +25,4 @@ fi
 
 $CMAKE -G "$GENFILE" -DCMAKE_BUILD_TYPE=${CONFIG} ../../ && $GO
 
+cp ~/projs/dnssniffer/platform/Linux-x86_64/bin/dnssniffer ~/dnss/

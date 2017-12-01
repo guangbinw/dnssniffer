@@ -195,8 +195,8 @@ int main(int argc, char *argv[])
 
   while ( (optchar = getopt_long (argc, argv, "ht:", long_options, &option_index) != -1)) {
     if (option_index >= 0 && option_index < NUM_OPTIONS) {
-      if (option_index == 5) { usage(); exit(0); }
-      if (option_index == 6) {
+      if (option_index == 6) { usage(); exit(0); }
+      if (option_index == 7) {
         int n = atoi(optarg);
         if (n < 60 || n > 1500) { printf("Invalid trunc argument '%s'\n", optarg); exit(2); }
         snaplen = n;
