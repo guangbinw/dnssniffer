@@ -170,6 +170,9 @@ void process_packet(uint8_t *args, const struct pcap_pkthdr *header, const uint8
 
   //Get the IP Header part of this packet , excluding the ethernet header (won't work for VLAN tagged packets)
   struct ip *iph = (struct ip*)(buffer + sizeof(struct ether_header));
+  
+  printf("process_packet:protocol = %d,dport = %d,sport = %d, len = %d\n", iph->ip_p,iph->uh_dport,iph->uh_sport,header->len);
+
   switch (iph->ip_p) //Check the Protocol and do accordingly...
   {
     case 17: //UDP Protocol
