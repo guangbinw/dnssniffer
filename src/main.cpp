@@ -142,16 +142,33 @@ void save_packet(int fd, const struct pcap_pkthdr *header, const uint8_t *buffer
 //----------------------------------------------------------------------------
 void process_udp_packet(const uint8_t *Buffer , int Size)
 {
-  struct ip *iph = (struct ip *)(Buffer +  sizeof(struct ether_header));
+  struct ip *iph = 0L;
+  
+  struct ether_header *eth = (struct ether_header*)buffer;
+  if(eth->ether_type == 0x800){
+    iph = (struct ip*)(buffer + sizeof(struct ether_header));
+  }else if(eth->ether_type == 0x8100){
+    iph = (struct ip*)(buffer + sizeof(struct ether_header) + 4);
+  }
+  
   unsigned short iphdrlen = IP_HL(iph)*4;
 
   if (iphdrlen < sizeof(struct ip)) return; // sanity check
 
-  struct udphdr *udph = (struct udphdr*)(Buffer + iphdrlen  + sizeof(struct ether_header));
+  struct udphdr *udph = 0L;
 
-  int udpHeaderSize =  sizeof(struct ether_header) + iphdrlen + sizeof udph;
-  int udpPayloadSize = Size - udpHeaderSize;
+  int udpHeaderSize =  0;
+  int udpPayloadSize = 0;
 
+  if(eth->ether_type == 0x800){
+    udph = (struct udphdr*)(buffer + sizeof(struct ether_header) + iphdrlen);
+    udpHeaderSize =  sizeof(struct ether_header) + iphdrlen + sizeof udph;
+  }else if(eth->ether_type == 0x8100){
+    udph = (struct udphdr*)(buffer + sizeof(struct ether_header) + 4 + iphdrlen);
+    udpHeaderSize =  sizeof(struct ether_header) + iphdrlen + 4 + sizeof udph;
+  }
+
+  printf("process_udp_packet:src = %d,dst = %d, len = %d\n", ntohs(udph->uh_sport),ntohs(udph->uh_dport),udpPayloadSize);
   //printf("UDP packet %d bytes payload:%d bytes\n", Size, payload_size);
 
   // give payload to UDP parser.
@@ -167,9 +184,15 @@ void process_udp_packet(const uint8_t *Buffer , int Size)
 void process_packet(uint8_t *args, const struct pcap_pkthdr *header, const uint8_t *buffer)
 {
   if (header->caplen < header->len) printf("=== Truncated packet %d -> %d bytes\n", header->len, header->caplen);
+  
+  struct ip *iph = 0L;
 
-  //Get the IP Header part of this packet , excluding the ethernet header (won't work for VLAN tagged packets)
-  struct ip *iph = (struct ip*)(buffer + sizeof(struct ether_header));
+  struct ether_header *eth = (struct ether_header*)buffer;
+  if(eth->ether_type == 0x800){
+    iph = (struct ip*)(buffer + sizeof(struct ether_header));
+  }else if(eth->ether_type == 0x8100){
+    iph = (struct ip*)(buffer + sizeof(struct ether_header) + 4);
+  }
   
   printf("process_packet:protocol = %d,src = %x,dst = %x, len = %d\n", iph->ip_p,iph->ip_src,iph->ip_dst,header->len);
 
@@ -228,7 +251,7 @@ int main(int argc, char *argv[])
   gDnsParser = DnsParserNew(dnsRecPrinter, gIsPathEnabled, gIgnoreCnames);
   pcap_t *handle; //Handle of the device that shall be sniffed
   struct bpf_program fp;
-  char filter_exp[] = "udp port 53";
+  char filter_exp[] = "udp and port 53";
   char errbuf[100];
 
   printf("Packets truncated at %d bytes\n", snaplen);
@@ -254,7 +277,7 @@ int main(int argc, char *argv[])
   }
 
   printf(".. success\n");
-
+/*
   // Compile BPF filter
 
   if ((pcap_compile(handle, &fp, filter_exp, 1, PCAP_NETMASK_UNKNOWN)) == -1)
@@ -287,7 +310,7 @@ int main(int argc, char *argv[])
       printf("ERROR: unable to open PCAP outfile for writing '%s'\n", PCAP_OUT_FILENAME);
     }
   }
-
+*/
 
   // loop
 
