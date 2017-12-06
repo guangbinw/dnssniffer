@@ -171,7 +171,7 @@ void process_packet(uint8_t *args, const struct pcap_pkthdr *header, const uint8
   //Get the IP Header part of this packet , excluding the ethernet header (won't work for VLAN tagged packets)
   struct ip *iph = (struct ip*)(buffer + sizeof(struct ether_header));
   
-  printf("process_packet:protocol = %d,dport = %d,sport = %d, len = %d\n", iph->ip_p,iph->uh_dport,iph->uh_sport,header->len);
+  printf("process_packet:protocol = %d,src = %x,dst = %x, len = %d\n", iph->ip_p,iph->ip_src,iph->ip_dst,header->len);
 
   switch (iph->ip_p) //Check the Protocol and do accordingly...
   {
