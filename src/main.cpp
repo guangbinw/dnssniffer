@@ -137,54 +137,6 @@ void save_packet(int fd, const struct pcap_pkthdr *header, const uint8_t *buffer
 }
 
 //----------------------------------------------------------------------------
-// handle a UDP packet
-// Assumes payload is DNS, main() should be using BPF filter 'udp port 53'
-//----------------------------------------------------------------------------
-void process_udp_packet(const uint8_t *Buffer , int Size)
-{
-  struct ip *iph = 0L;
-  
-  struct ether_header *eth = (struct ether_header*)Buffer;
-  if(ntohs(eth->ether_type) == 0x800){
-    iph = (struct ip*)(Buffer + sizeof(struct ether_header));
-  }else if(ntohs(eth->ether_type) == 0x8100){
-    iph = (struct ip*)(Buffer + sizeof(struct ether_header) + 4);
-  }else{
-    printf("process_packet:ether_type=%x\n",eth->ether_type);
-    return;
-  }
-  
-  unsigned short iphdrlen = IP_HL(iph)*4;
-
-  if (iphdrlen < sizeof(struct ip)) return; // sanity check
-
-  struct udphdr *udph = 0L;
-
-  int udpHeaderSize =  0;
-  int udpPayloadSize = 0;
-
-  if(ntohs(eth->ether_type) == 0x800){
-    udph = (struct udphdr*)(Buffer + sizeof(struct ether_header) + iphdrlen);
-    udpHeaderSize =  sizeof(struct ether_header) + iphdrlen + sizeof udph;
-  }else if(ntohs(eth->ether_type) == 0x8100){
-    udph = (struct udphdr*)(Buffer + sizeof(struct ether_header) + 4 + iphdrlen);
-    udpHeaderSize =  sizeof(struct ether_header) + iphdrlen + 4 + sizeof udph;
-  }else{
-    return;
-  }
-
-  udpPayloadSize = Size - udpHeaderSize;
-  //printf("process_udp_packet:src = %d,dst = %d, len = %d\n", ntohs(udph->uh_sport),ntohs(udph->uh_dport),udpPayloadSize);
-  //printf("UDP packet %d bytes payload:%d bytes\n", Size, payload_size);
-
-  // give payload to UDP parser.
-  // If it parses DNS response, MyDnsParserListener.onDnsRec() will be called
-
-  if (0L != gDnsParser && udpPayloadSize > 4)
-    gDnsParser->parse((char*)Buffer + udpHeaderSize, udpPayloadSize);
-}
-
-//----------------------------------------------------------------------------
 // process_packet - called by libpcap loop for each packet matching BPF filter
 //----------------------------------------------------------------------------
 void process_packet(uint8_t *args, const struct pcap_pkthdr *header, const uint8_t *buffer)
@@ -194,26 +146,42 @@ void process_packet(uint8_t *args, const struct pcap_pkthdr *header, const uint8
   struct ip *iph = 0L;
 
   struct ether_header *eth = (struct ether_header*)buffer;
-  if(ntohs(eth->ether_type) == 0x800){
-    iph = (struct ip*)(buffer + sizeof(struct ether_header));
-  }else if(ntohs(eth->ether_type) == 0x8100){
-    iph = (struct ip*)(buffer + sizeof(struct ether_header) + 4);
+  int etype = ntohs(eth->ether_type);
+  int ip_pos = 0;
+
+  if(etype == 0x800){
+    ip_pos = sizeof(struct ether_header);
+  }else if(etype == 0x8100){
+    ip_pos = sizeof(struct ether_header) + 4;
   }else {
-    printf("process_packet:ether_type=%x\n",eth->ether_type);
+    //printf("process_packet:ether_type=%x\n",eth->ether_type);
     return;
   }
   
-  //printf("process_packet:protocol = %d,src = %x,dst = %x, len = %d\n", iph->ip_p,iph->ip_src,iph->ip_dst,header->len);
-
-  switch (iph->ip_p) //Check the Protocol and do accordingly...
-  {
-    case 17: //UDP Protocol
-      if (gPcapOutfile > 0) save_packet(gPcapOutfile, header, buffer);
-      process_udp_packet(buffer , header->caplen);
-    break;
-    default: //Some Other Protocol like ARP etc.
-    break;
+  iph = (struct ip*)(buffer + ip_pos);
+  if (iph->ip_p != 17){
+    //printf("process_packet:not udp, ip_proto = %x\n", iph->ip_p);
+    return;
   }
+
+  unsigned short iphdrlen = IP_HL(iph)*4;
+
+  if (iphdrlen < sizeof(struct ip)){
+    //printf("process_packet:iphdrlen < sizeof(struct ip), iphdrlen  = %x\n", iphdrlen);
+    return;
+  }
+
+  struct udphdr *udph = (struct udphdr*)((uint8_t *)iph + iphdrlen);
+  int udpHeaderSize =  ip_pos + iphdrlen + sizeof udph;
+  int udpPayloadSize = Size - udpHeaderSize;
+  
+  //printf("process_udp_packet:src = %d,dst = %d, len = %d\n", ntohs(udph->uh_sport),ntohs(udph->uh_dport),udpPayloadSize);
+  //printf("UDP packet %d bytes payload:%d bytes\n", Size, payload_size);
+
+  // give payload to UDP parser.
+  // If it parses DNS response, MyDnsParserListener.onDnsRec() will be called
+  if (0L != gDnsParser && udpPayloadSize > 4)
+    gDnsParser->parse((char*)Buffer + udpHeaderSize, udpPayloadSize);
 }
 
 //----------------------------------------------------------------------------
