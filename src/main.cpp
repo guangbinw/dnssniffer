@@ -173,7 +173,7 @@ void process_packet(uint8_t *args, const struct pcap_pkthdr *header, const uint8
 
   struct udphdr *udph = (struct udphdr*)((uint8_t *)iph + iphdrlen);
   int udpHeaderSize =  ip_pos + iphdrlen + sizeof udph;
-  int udpPayloadSize = Size - udpHeaderSize;
+  int udpPayloadSize = header->caplen - udpHeaderSize;
   
   //printf("process_udp_packet:src = %d,dst = %d, len = %d\n", ntohs(udph->uh_sport),ntohs(udph->uh_dport),udpPayloadSize);
   //printf("UDP packet %d bytes payload:%d bytes\n", Size, payload_size);
@@ -181,7 +181,7 @@ void process_packet(uint8_t *args, const struct pcap_pkthdr *header, const uint8
   // give payload to UDP parser.
   // If it parses DNS response, MyDnsParserListener.onDnsRec() will be called
   if (0L != gDnsParser && udpPayloadSize > 4)
-    gDnsParser->parse((char*)Buffer + udpHeaderSize, udpPayloadSize);
+    gDnsParser->parse((char*)buffer + udpHeaderSize, udpPayloadSize);
 }
 
 //----------------------------------------------------------------------------
